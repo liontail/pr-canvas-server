@@ -3,8 +3,9 @@ const { rateLimit } = require('express-rate-limit')
 const { safeParseGraphDoc } = require('@coldtea/pr-lens-schema')
 const { PrLensRenderError } = require('@coldtea/pr-lens-renderer')
 const { ApiError, notFound, errorHandler } = require('./errors')
-const { renderCanvas, renderStored, buildSummary, WalkthroughError } = require('./render')
+const { renderCanvas, buildSummary, WalkthroughError } = require('./render')
 const { parseRev } = require('./rev')
+const { assetBaseFor, resolveVersion } = require('./versioned')
 const { createViewerRouter } = require('./viewer')
 const { createLibraryRouter } = require('./library')
 
@@ -24,7 +25,7 @@ function createApp ({ store, config }) {
   const app = express()
   const base = config.publicBaseUrl
   const links = (id) => ({ viewUrl: `${base}/c/${id}`, embedUrl: `${base}/c/${id}.svg` })
-  const assetBase = (id, rev = null) => (rev ? `${base}/c/${id}/r/${rev}/assets` : `${base}/c/${id}/assets`)
+  const assetBase = assetBaseFor(base)
 
   app.disable('x-powered-by')
   if (config.trustProxy) app.set('trust proxy', config.trustProxy)
@@ -61,18 +62,16 @@ function createApp ({ store, config }) {
 
   app.get('/api/canvas/:id', async (req, res) => {
     const { id } = req.params
-    const rev = parseRev(req.query.rev)
-    const canvas = await store.load(id)
-    if (!canvas || canvas.rev === 0) throw notFound()
-    let served = canvas
-    let assetRev = null
-    if (rev !== null && rev !== canvas.rev) {
-      served = await store.loadRevision(id, rev)
-      if (!served) throw notFound()
-      assetRev = rev
-    }
-    const { tiles } = renderStored(served.document, assetBase(id, assetRev))
-    res.json({ id, rev: served.rev, latestRev: canvas.rev, ...links(id), document: served.document, tiles })
+    const found = await resolveVersion(store, id, parseRev(req.query.rev), parseRev(req.query.base), assetBase)
+    res.json({
+      id,
+      rev: found.rev,
+      latestRev: found.latestRev,
+      ...(found.base !== null ? { base: found.base } : {}),
+      ...links(id),
+      document: found.document,
+      tiles: found.tiles,
+    })
   })
 
   app.get('/api/canvas/:id/versions', async (req, res) => {

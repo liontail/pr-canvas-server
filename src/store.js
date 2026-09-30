@@ -97,6 +97,34 @@ async function createStore ({ uri, dbName, maxRevisions }) {
       return revisions.countDocuments({ canvasId: id })
     },
 
+    async deleteCanvas (id) {
+      const res = await canvases.deleteOne({ _id: id, rev: { $gt: 0 } })
+      if (res.deletedCount !== 1) return false
+      await revisions.deleteMany({ canvasId: id })
+      return true
+    },
+
+    // Deleting the latest version copies the next-highest one back into the canvas row, guarded on the rev being deleted.
+    async deleteVersion (id, rev) {
+      const row = await canvases.findOne({ _id: id, rev: { $gt: 0 } }, { projection: { rev: 1 } })
+      if (!row) return 'not_found'
+      if (!(await revisions.findOne({ _id: `${id}:${rev}` }, { projection: { _id: 1 } }))) return 'not_found'
+      if ((await revisions.countDocuments({ canvasId: id })) < 2) return 'last_version'
+      if (rev !== row.rev) {
+        await revisions.deleteOne({ _id: `${id}:${rev}` })
+        return 'ok'
+      }
+      const previous = await revisions.find({ canvasId: id, rev: { $lt: rev } }).sort({ rev: -1 }).limit(1).next()
+      if (!previous) return 'not_found'
+      const res = await canvases.updateOne(
+        { _id: id, rev },
+        { $set: { doc: previous.doc, summary: previous.summary, rev: previous.rev, lastWriteAt: previous.createdAt } },
+      )
+      if (res.matchedCount !== 1) return 'not_found'
+      await revisions.deleteOne({ _id: `${id}:${rev}` })
+      return 'ok'
+    },
+
     async checkToken (id, token) {
       return (await tokenStatus(id, token)).status
     },

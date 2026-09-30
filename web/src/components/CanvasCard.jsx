@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { PencilIcon, XIcon } from 'lucide-react'
+import { PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -7,11 +7,13 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { displayName } from '../lib/filter.js'
 import { addTag, removeTag } from '../lib/tags.js'
+import { ConfirmDialog } from './ConfirmDialog.jsx'
 
 const NONE = '__none__'
 const INDENT = '  '
 
-export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove }) {
+export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove, onDelete }) {
+  const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const [tagText, setTagText] = useState('')
@@ -80,6 +82,7 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove }
           <h2 className="flex items-center gap-1 text-[15px] leading-snug font-semibold break-words">
             <a href={`/c/${canvas.id}`} className="hover:underline">{name}</a>
             <Button variant="ghost" size="icon-xs" aria-label={`Rename ${name}`} title="Rename" onClick={startEdit}><PencilIcon /></Button>
+            <Button variant="ghost" size="icon-xs" aria-label={`Delete ${name}`} title="Delete" onClick={() => setConfirming(true)}><Trash2Icon /></Button>
           </h2>
         )}
         {canvas.name && canvas.name !== canvas.title && <p className="text-xs break-words text-muted-foreground">{canvas.title}</p>}
@@ -121,6 +124,13 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove }
           </SelectContent>
         </Select>
       </div>
+      <ConfirmDialog
+        open={confirming}
+        onOpenChange={setConfirming}
+        title={`Delete "${name}"?`}
+        description={`This removes the diagram and its ${canvas.versions} version${canvas.versions === 1 ? '' : 's'}. This can't be undone.`}
+        onConfirm={onDelete}
+      />
     </Card>
   )
 }

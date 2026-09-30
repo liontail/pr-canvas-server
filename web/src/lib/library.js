@@ -13,3 +13,5 @@ export const patchCanvas = (id, patch) => request('PATCH', `/api/library/canvase
 export const createGroup = (name, parentId = null) => request('POST', '/api/library/groups', { name, parentId })
 export const updateGroup = (id, patch) => request('PATCH', `/api/library/groups/${encodeURIComponent(id)}`, patch)
 export const deleteGroup = (id) => request('DELETE', `/api/library/groups/${encodeURIComponent(id)}`)
+export const deleteCanvas = (id) => request('DELETE', `/api/library/canvases/${encodeURIComponent(id)}`)
+export const deleteVersion = (id, rev) => request('DELETE', `/api/library/canvases/${encodeURIComponent(id)}/versions/${rev}`)

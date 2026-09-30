@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 import { CanvasCard } from './components/CanvasCard.jsx'
 import { GroupTree } from './components/GroupTree.jsx'
 import { allTags, filterCanvases, sortCanvases } from './lib/filter.js'
-import { createGroup, deleteGroup, getLibrary, patchCanvas, updateGroup } from './lib/library.js'
+import { createGroup, deleteCanvas, deleteGroup, getLibrary, patchCanvas, updateGroup } from './lib/library.js'
 import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
 import { flatten } from './lib/tree.js'
 
@@ -134,6 +134,7 @@ export function Home () {
                 onRename={(name) => run(() => patchCanvas(canvas.id, { name }))}
                 onTags={(next) => run(() => patchCanvas(canvas.id, { tags: next }))}
                 onMove={(groupId) => run(() => patchCanvas(canvas.id, { groupId }))}
+                onDelete={() => deleteCanvas(canvas.id).then(refresh)}
               />
             ))}
           </div>

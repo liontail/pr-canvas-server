@@ -1,6 +1,7 @@
 const express = require('express')
 const { ApiError, notFound } = require('./errors')
 const { buildSummary, renderStored } = require('./render')
+const { parseRev } = require('./rev')
 const validate = require('./library-validate')
 
 const invalid = (message) => new ApiError('INVALID_REQUEST', message)
@@ -104,6 +105,19 @@ function createLibraryRouter ({ store, config }) {
     const row = await store.updateGroup(current._id, patch)
     if (!row) throw notFound()
     res.json(toGroup(row))
+  })
+
+  router.delete('/canvases/:id', async (req, res) => {
+    if (!(await store.deleteCanvas(req.params.id))) throw notFound()
+    res.json({ id: req.params.id, deleted: true })
+  })
+
+  router.delete('/canvases/:id/versions/:rev', async (req, res) => {
+    const rev = parseRev(req.params.rev)
+    const result = await store.deleteVersion(req.params.id, rev)
+    if (result === 'not_found') throw notFound()
+    if (result === 'last_version') throw new ApiError('LAST_VERSION', 'This is the only version; delete the diagram instead')
+    res.json({ id: req.params.id, rev, deleted: true, latestRev: await store.currentRev(req.params.id) })
   })
 
   router.delete('/groups/:id', async (req, res) => {

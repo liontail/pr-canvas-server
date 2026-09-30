@@ -18,7 +18,11 @@ import { tooltipText } from './lib/describe.js'
 import { detailModel } from './lib/detail.js'
 import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
 import { VersionPicker } from './components/VersionPicker.jsx'
-import { parseRev, withRev } from './lib/versions.js'
+import { DiffControls } from './components/DiffControls.jsx'
+import { ConfirmDialog } from './components/ConfirmDialog.jsx'
+import { Button } from '@/components/ui/button'
+import { deleteVersion } from './lib/library.js'
+import { parseBase, parseRev, withVersion } from './lib/versions.js'
 
 const PANEL = 380
 
@@ -27,6 +31,8 @@ export function App ({ canvasId }) {
   const [error, setError] = useState(null)
   const [versions, setVersions] = useState(null)
   const wanted = useRef(parseRev(location.search))
+  const wantedBase = useRef(parseBase(location.search))
+  const [deleting, setDeleting] = useState(false)
   const [theme, setTheme] = useState(readTheme)
   const [activeTile, setActiveTile] = useState(null)
   const [stepIndex, setStepIndex] = useState(null)
@@ -42,18 +48,31 @@ export function App ({ canvasId }) {
   useEffect(() => { applyTheme(theme) }, [theme])
 
   useEffect(() => {
-    const query = wanted.current ? `?rev=${wanted.current}` : ''
+    const params = new URLSearchParams()
+    if (wanted.current) params.set('rev', String(wanted.current))
+    if (wantedBase.current) params.set('base', String(wantedBase.current))
+    const query = params.toString() ? `?${params}` : ''
     fetch(`/api/canvas/${canvasId}${query}`, { headers: { accept: 'application/json' } })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.status === 404 ? 'Canvas not found' : `Request failed (${res.status})`))))
+      .then((res) => (res.ok ? res.json() : res.json().catch(() => ({})).then((body) => Promise.reject(new Error(res.status === 404 ? 'Canvas not found' : (body.error && body.error.message) || `Request failed (${res.status})`)))))
       .then(setData, (err) => setError(err.message))
     fetch(`/api/canvas/${canvasId}/versions`, { headers: { accept: 'application/json' } })
       .then((res) => (res.ok ? res.json() : null))
       .then(setVersions, () => {})
   }, [canvasId])
 
-  function chooseVersion (next) {
+  function go (search) {
     const w = initialHash.current.w
-    location.assign(location.pathname + withRev(location.search, next, data.latestRev) + (w ? `#w=${w}` : ''))
+    location.assign(location.pathname + search + (w ? `#w=${w}` : ''))
+  }
+
+  function chooseVersion (next) {
+    const keep = wantedBase.current && wantedBase.current !== next ? wantedBase.current : null
+    go(withVersion(location.search, { rev: next, base: keep }, data.latestRev))
+  }
+
+  async function removeVersion () {
+    await deleteVersion(canvasId, data.rev)
+    go('')
   }
 
   const layout = useMemo(
@@ -197,7 +216,14 @@ export function App ({ canvasId }) {
 
   return (
     <div class="app" ref={containerRef}>
-      {error && <div class="message">{error}</div>}
+      {error && (
+        <div class="message">
+          <div>
+            {error}
+            {wantedBase.current && <p><a className="underline" href={location.pathname + withVersion(location.search, { rev: wanted.current, base: null }, null)}>Back to the plain view</a></p>}
+          </div>
+        </div>
+      )}
       {!error && !data && <div class="message">Loading…</div>}
       {data && layout && (
         <>
@@ -232,12 +258,29 @@ export function App ({ canvasId }) {
             <strong className="block text-[13px]">{data.document.title}</strong>
             <small className="text-muted-foreground">{repo ? `${repo.owner}/${repo.name} · ` : ''}rev {data.rev} · {diagrams} diagram{diagrams === 1 ? '' : 's'}</small>
             {versions && versions.versions.length > 1 && (
-              <VersionPicker versions={versions.versions} latestRev={data.latestRev} current={data.rev} onChoose={chooseVersion} />
+              <>
+                <VersionPicker versions={versions.versions} latestRev={data.latestRev} current={data.rev} onChoose={chooseVersion} />
+                <DiffControls
+                  versions={versions.versions}
+                  rev={data.rev}
+                  base={data.base ?? null}
+                  onToggle={(base) => go(withVersion(location.search, { rev: data.rev, base }, data.latestRev))}
+                  onBase={(base) => go(withVersion(location.search, { rev: data.rev, base }, data.latestRev))}
+                />
+                <Button variant="ghost" size="xs" className="mt-1.5 text-destructive hover:text-destructive" onClick={() => setDeleting(true)}>Delete this version</Button>
+                <ConfirmDialog
+                  open={deleting}
+                  onOpenChange={setDeleting}
+                  title={`Delete rev ${data.rev}?`}
+                  description="This removes only this version. This can't be undone."
+                  onConfirm={removeVersion}
+                />
+              </>
             )}
             {data.rev !== data.latestRev && (
               <p className="mt-1.5 text-[11px] text-muted-foreground">
                 Viewing rev {data.rev} of {data.latestRev} ·{' '}
-                <a className="underline hover:text-foreground" href={location.pathname + withRev(location.search, null, data.latestRev)}>Back to latest</a>
+                <a className="underline hover:text-foreground" href={location.pathname + withVersion(location.search, { rev: null, base: null }, data.latestRev)}>Back to latest</a>
               </p>
             )}
           </header>

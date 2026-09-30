@@ -1,9 +1,9 @@
 const fs = require('fs')
 const path = require('path')
 const express = require('express')
-const { notFound } = require('./errors')
+const { ApiError, notFound } = require('./errors')
 const { parseRev } = require('./rev')
-const { renderStored } = require('./render')
+const { assetBaseFor, resolveVersion } = require('./versioned')
 
 const ID_RE = /^[A-Za-z0-9_-]{22}$/
 const PAGE_RE = /^([A-Za-z0-9_-]{22})(\.svg)?$/
@@ -104,16 +104,11 @@ function createViewerRouter ({ store, config }) {
       setHeaders (res) { res.setHeader('Cache-Control', 'public, max-age=31536000, immutable') },
     }))
   }
-  const assetBase = (id, rev = null) => (rev ? `${config.publicBaseUrl}/c/${id}/r/${rev}/assets` : `${config.publicBaseUrl}/c/${id}/assets`)
+  const assetBase = assetBaseFor(config.publicBaseUrl)
 
-  async function drawn (id, rev = null) {
+  async function drawn (id, rev = null, base = null) {
     if (!ID_RE.test(id)) throw notFound()
-    const canvas = await store.load(id)
-    if (!canvas || canvas.rev === 0) throw notFound()
-    if (rev === null || rev === canvas.rev) return renderStored(canvas.document, assetBase(id))
-    const old = await store.loadRevision(id, rev)
-    if (!old) throw notFound()
-    return renderStored(old.document, assetBase(id, rev))
+    return resolveVersion(store, id, rev, base, assetBase)
   }
 
   router.get('/', (req, res) => {
@@ -125,7 +120,15 @@ function createViewerRouter ({ store, config }) {
   router.get('/c/:idExt', async (req, res) => {
     const match = PAGE_RE.exec(req.params.idExt)
     if (!match) throw notFound()
-    const { tiles } = await drawn(match[1], parseRev(req.query.rev))
+    let found
+    try {
+      found = await drawn(match[1], parseRev(req.query.rev), parseRev(req.query.base))
+    } catch (err) {
+      // The page is only a shell: for a bad diff link serve the latest so the app can say why the diff failed
+      if (match[2] || !(err instanceof ApiError) || req.query.base === undefined) throw err
+      found = await drawn(match[1])
+    }
+    const { tiles } = found
     const hero = tiles.find((tile) => tile.hero)
     if (match[2]) {
       const theme = req.query.theme === 'dark' ? 'dark' : 'light'
@@ -136,13 +139,14 @@ function createViewerRouter ({ store, config }) {
   })
 
   async function sendAsset (req, res) {
-    const { files } = await drawn(req.params.id, parseRev(req.params.rev))
+    const { files } = await drawn(req.params.id, parseRev(req.params.rev), parseRev(req.params.base))
     const svg = files.get(req.params.file)
     if (!svg) throw notFound()
     res.set({ 'Cache-Control': 'public, max-age=31536000, immutable', 'Content-Security-Policy': SVG_CSP }).type('image/svg+xml').send(svg)
   }
   router.get('/c/:id/assets/:file', sendAsset)
   router.get('/c/:id/r/:rev/assets/:file', sendAsset)
+  router.get('/c/:id/r/:rev/b/:base/assets/:file', sendAsset)
 
   return router
 }
