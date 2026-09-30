@@ -46,7 +46,7 @@ function page (hero, id, assets) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(hero.title)}</title>
-<style>body{margin:0;padding:2rem;font-family:system-ui,sans-serif;background:#fff;color:#111}@media(prefers-color-scheme:dark){body{background:#0d1117;color:#c9d1d9}}img{max-width:100%;height:auto}</style>
+${assets ? '' : fallbackStyle}
 ${styles}
 </head>
 <body>
@@ -55,6 +55,8 @@ ${body}
 </html>
 `
 }
+
+const fallbackStyle = '<style>body{margin:0;padding:2rem;font-family:system-ui,sans-serif;background:#fff;color:#111}@media(prefers-color-scheme:dark){body{background:#0d1117;color:#c9d1d9}}img{max-width:100%;height:auto}</style>'
 
 function homePage (assets) {
   const styles = assets.css.map((href) => `<link rel="stylesheet" href="${esc(href)}">`).join('\n')

@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["./web/src/*"] },
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact"
+  },
+  "include": ["web/src"]
+}

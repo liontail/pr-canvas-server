@@ -16,7 +16,7 @@ import { parseHash, serializeHash } from './lib/hash.js'
 import { hitTest, tileAt } from './lib/hit.js'
 import { tooltipText } from './lib/describe.js'
 import { detailModel } from './lib/detail.js'
-import { readTheme, saveTheme } from './lib/theme.js'
+import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
 
 const PANEL = 380
 
@@ -35,7 +35,7 @@ export function App ({ canvasId }) {
   const { camera, cameraRef, setCamera, flyTo } = useCamera()
   const viewport = useViewport(containerRef)
 
-  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  useEffect(() => { applyTheme(theme) }, [theme])
 
   useEffect(() => {
     fetch(`/api/canvas/${canvasId}`, { headers: { accept: 'application/json' } })
@@ -214,10 +214,10 @@ export function App ({ canvasId }) {
           {hover && !playing && (
             <Tooltip text={tooltipText(data.document, hover.target)} client={hover.client} viewport={viewport} />
           )}
-          <header class="chip">
-            <a class="back" href="/">← Library</a>
-            <strong>{data.document.title}</strong>
-            <small>{repo ? `${repo.owner}/${repo.name} · ` : ''}rev {data.rev} · {diagrams} diagram{diagrams === 1 ? '' : 's'}</small>
+          <header className="absolute top-3 left-3 z-10 rounded-lg border bg-card px-3 py-2 shadow-sm">
+            <a className="block text-[11px] text-muted-foreground hover:text-foreground" href="/">← Library</a>
+            <strong className="block text-[13px]">{data.document.title}</strong>
+            <small className="text-muted-foreground">{repo ? `${repo.owner}/${repo.name} · ` : ''}rev {data.rev} · {diagrams} diagram{diagrams === 1 ? '' : 's'}</small>
           </header>
           {!playing && <Switcher tiles={data.tiles} theme={theme} activeId={activeTile} onSelect={selectTile} />}
           <Toolbar
@@ -231,7 +231,7 @@ export function App ({ canvasId }) {
           />
           {model && !playing && <DetailPanel model={model} onClose={() => setSelected(null)} />}
           {playing && <Walkthrough steps={steps} index={stepIndex} onIndex={goToStep} onLeave={leave} />}
-          {camera && <div class="zoom">{Math.round(camera.zoom * 100)}%</div>}
+          {camera && <div className="absolute right-3.5 bottom-3.5 z-10 font-mono text-[11px] text-muted-foreground">{Math.round(camera.zoom * 100)}%</div>}
         </>
       )}
     </div>

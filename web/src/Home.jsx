@@ -1,9 +1,17 @@
 import { useEffect, useMemo, useState } from 'preact/hooks'
+import { MoonIcon, SunIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { badgeVariants } from '@/components/ui/badge'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { CanvasCard } from './components/CanvasCard.jsx'
 import { GroupTree } from './components/GroupTree.jsx'
 import { allTags, filterCanvases, sortCanvases } from './lib/filter.js'
 import { createGroup, deleteGroup, getLibrary, patchCanvas, updateGroup } from './lib/library.js'
-import { readTheme, saveTheme } from './lib/theme.js'
+import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
 import { flatten } from './lib/tree.js'
 
 export function Home () {
@@ -15,7 +23,7 @@ export function Home () {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('updated')
 
-  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+  useEffect(() => { applyTheme(theme) }, [theme])
 
   async function refresh () {
     try {
@@ -42,6 +50,7 @@ export function Home () {
     [library, group, tag, query, sort],
   )
   const tags = useMemo(() => (library ? allTags(library.canvases) : []), [library])
+  useEffect(() => { if (tag && library && !tags.some((t) => t.tag.toLowerCase() === tag.toLowerCase())) setTag(null) }, [tags, tag, library])
   const options = useMemo(() => (library ? flatten(library.groups) : []), [library])
 
   function toggleTheme () {
@@ -51,15 +60,26 @@ export function Home () {
   }
 
   if (!library) {
-    return <div class="home-status">{error || 'Loading…'}</div>
+    if (error) return <div className="absolute inset-0 grid place-items-center text-muted-foreground">{error}</div>
+    return (
+      <div className="flex h-full flex-col md:flex-row" aria-busy="true" aria-label="Loading diagrams">
+        <aside className="w-full shrink-0 border-b bg-card p-3 md:w-72 md:border-r md:border-b-0">
+          <Skeleton className="mb-3 h-5 w-24" />
+          <Skeleton className="h-8 w-full" />
+        </aside>
+        <main className="grid flex-1 grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] content-start gap-4 p-6">
+          {[0, 1, 2, 3].map((n) => <Skeleton key={n} className="h-72 rounded-xl" />)}
+        </main>
+      </div>
+    )
   }
 
   const isOn = (name) => tag && tag.toLowerCase() === name.toLowerCase()
 
   return (
-    <div class="home">
-      <aside class="side">
-        <h1>Diagrams</h1>
+    <div className="flex h-full flex-col overflow-y-auto bg-background text-foreground md:flex-row md:overflow-hidden">
+      <aside className="w-full shrink-0 overflow-y-auto border-b bg-card p-3 md:h-full md:w-72 md:border-r md:border-b-0">
+        <h1 className="px-2 pb-3 text-base font-semibold">Diagrams</h1>
         <GroupTree
           groups={library.groups}
           selected={group}
@@ -73,27 +93,38 @@ export function Home () {
           }}
         />
       </aside>
-      <main class="content">
-        <div class="bar">
-          <input type="search" placeholder="Search name, repo or tag" value={query} aria-label="Search diagrams" onInput={(event) => setQuery(event.currentTarget.value)} />
-          <select value={sort} aria-label="Sort" onChange={(event) => setSort(event.currentTarget.value)}>
-            <option value="updated">Recently updated</option>
-            <option value="name">Name</option>
-          </select>
-          <button type="button" class="ghost" aria-label="Toggle theme" onClick={toggleTheme}>{theme === 'dark' ? 'Light' : 'Dark'}</button>
+      <main className="min-w-0 flex-1 p-6 md:overflow-y-auto">
+        <div className="flex items-center gap-2">
+          <Input type="search" className="min-w-0 flex-1" placeholder="Search name, repo or tag" value={query} aria-label="Search diagrams" onInput={(event) => setQuery(event.currentTarget.value)} />
+          <Select value={sort} onValueChange={setSort}>
+            <SelectTrigger className="w-44" aria-label="Sort"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="updated">Recently updated</SelectItem>
+              <SelectItem value="name">Name</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" aria-label="Toggle theme" title="Toggle theme" onClick={toggleTheme}>
+            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+          </Button>
         </div>
         {tags.length > 0 && (
-          <div class="tagbar" role="group" aria-label="Filter by tag">
+          <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter by tag">
             {tags.map(({ tag: name, count }) => (
-              <button type="button" key={name} class={`chip-btn${isOn(name) ? ' on' : ''}`} aria-pressed={Boolean(isOn(name))} onClick={() => setTag(isOn(name) ? null : name)}>
-                {name} <small>{count}</small>
+              <button
+                type="button"
+                key={name}
+                aria-pressed={Boolean(isOn(name))}
+                className={cn(badgeVariants({ variant: isOn(name) ? 'default' : 'outline' }), 'cursor-pointer gap-1')}
+                onClick={() => setTag(isOn(name) ? null : name)}
+              >
+                {name} <small className="opacity-70">{count}</small>
               </button>
             ))}
           </div>
         )}
-        {error && <p class="err" role="alert">{error}</p>}
+        {error && <p role="alert" className="mt-3 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">{error}</p>}
         {visible.length ? (
-          <div class="grid">
+          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
             {visible.map((canvas) => (
               <CanvasCard
                 key={canvas.id}
@@ -107,9 +138,14 @@ export function Home () {
             ))}
           </div>
         ) : (
-          <p class="empty">
-            {library.canvases.length ? 'No diagrams match.' : 'Nothing pushed yet. Push a diagram with the pr-lens CLI and it will show up here.'}
-          </p>
+          <Empty className="mt-10">
+            <EmptyHeader>
+              <EmptyTitle>{library.canvases.length ? 'No diagrams match' : 'Nothing pushed yet'}</EmptyTitle>
+              <EmptyDescription>
+                {library.canvases.length ? 'Try a different search, tag or group.' : 'Push a diagram with the pr-lens CLI and it will show up here.'}
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
         )}
       </main>
     </div>

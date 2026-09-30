@@ -9,3 +9,7 @@ export function readTheme () {
 export function saveTheme (theme) {
   try { localStorage.setItem('prl-theme', theme) } catch {}
 }
+
+export function applyTheme (theme, root = document.documentElement) {
+  root.classList.toggle('dark', theme === 'dark')
+}
