@@ -233,6 +233,7 @@ async function createStore ({ uri, dbName, maxRevisions }) {
       return true
     },
 
+    ping () { return db.command({ ping: 1 }) },
     dropDatabase () { return db.dropDatabase() },
     close () { return client.close() },
   }

@@ -54,6 +54,15 @@ function createApp ({ store, config }) {
     },
   })
 
+  app.get('/healthz', async (req, res) => {
+    try {
+      await store.ping()
+      res.json({ status: 'ok' })
+    } catch {
+      res.status(503).json({ status: 'unavailable' })
+    }
+  })
+
   app.post('/api/canvas', mintLimiter, async (req, res) => {
     const { id, writeToken } = await store.mint()
     const { viewUrl, embedUrl } = links(id)
