@@ -1,0 +1,8 @@
+node_modules
+docs
+test
+.env
+server.prototype.js
+public
+.superpowers
+web/node_modules

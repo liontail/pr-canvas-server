@@ -1,0 +1,29 @@
+{
+  "name": "pr-canvas-server",
+  "version": "1.0.0",
+  "description": "Self-hosted PR Lens Canvas API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "test": "node --test \"test/*.test.js\" \"web/test/*.test.js\"",
+    "build:web": "vite build --config web/vite.config.js",
+    "dev:web": "vite --config web/vite.config.js"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@coldtea/pr-lens-renderer": "^0.3.1",
+    "@coldtea/pr-lens-schema": "^0.6.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "mongodb": "^7.7.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "preact": "^11.0.0",
+    "vite": "^8.3.1"
+  }
+}
