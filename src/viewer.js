@@ -2,6 +2,7 @@ const fs = require('fs')
 const path = require('path')
 const express = require('express')
 const { notFound } = require('./errors')
+const { parseRev } = require('./rev')
 const { renderStored } = require('./render')
 
 const ID_RE = /^[A-Za-z0-9_-]{22}$/
@@ -103,13 +104,16 @@ function createViewerRouter ({ store, config }) {
       setHeaders (res) { res.setHeader('Cache-Control', 'public, max-age=31536000, immutable') },
     }))
   }
-  const assetBase = (id) => `${config.publicBaseUrl}/c/${id}/assets`
+  const assetBase = (id, rev = null) => (rev ? `${config.publicBaseUrl}/c/${id}/r/${rev}/assets` : `${config.publicBaseUrl}/c/${id}/assets`)
 
-  async function drawn (id) {
+  async function drawn (id, rev = null) {
     if (!ID_RE.test(id)) throw notFound()
     const canvas = await store.load(id)
     if (!canvas || canvas.rev === 0) throw notFound()
-    return renderStored(canvas.document, assetBase(id))
+    if (rev === null || rev === canvas.rev) return renderStored(canvas.document, assetBase(id))
+    const old = await store.loadRevision(id, rev)
+    if (!old) throw notFound()
+    return renderStored(old.document, assetBase(id, rev))
   }
 
   router.get('/', (req, res) => {
@@ -121,7 +125,7 @@ function createViewerRouter ({ store, config }) {
   router.get('/c/:idExt', async (req, res) => {
     const match = PAGE_RE.exec(req.params.idExt)
     if (!match) throw notFound()
-    const { tiles } = await drawn(match[1])
+    const { tiles } = await drawn(match[1], parseRev(req.query.rev))
     const hero = tiles.find((tile) => tile.hero)
     if (match[2]) {
       const theme = req.query.theme === 'dark' ? 'dark' : 'light'
@@ -131,12 +135,14 @@ function createViewerRouter ({ store, config }) {
     res.type('html').send(page(hero, match[1], assets))
   })
 
-  router.get('/c/:id/assets/:file', async (req, res) => {
-    const { files } = await drawn(req.params.id)
+  async function sendAsset (req, res) {
+    const { files } = await drawn(req.params.id, parseRev(req.params.rev))
     const svg = files.get(req.params.file)
     if (!svg) throw notFound()
     res.set({ 'Cache-Control': 'public, max-age=31536000, immutable', 'Content-Security-Policy': SVG_CSP }).type('image/svg+xml').send(svg)
-  })
+  }
+  router.get('/c/:id/assets/:file', sendAsset)
+  router.get('/c/:id/r/:rev/assets/:file', sendAsset)
 
   return router
 }

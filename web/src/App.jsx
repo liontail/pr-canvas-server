@@ -17,12 +17,16 @@ import { hitTest, tileAt } from './lib/hit.js'
 import { tooltipText } from './lib/describe.js'
 import { detailModel } from './lib/detail.js'
 import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
+import { VersionPicker } from './components/VersionPicker.jsx'
+import { parseRev, withRev } from './lib/versions.js'
 
 const PANEL = 380
 
 export function App ({ canvasId }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
+  const [versions, setVersions] = useState(null)
+  const wanted = useRef(parseRev(location.search))
   const [theme, setTheme] = useState(readTheme)
   const [activeTile, setActiveTile] = useState(null)
   const [stepIndex, setStepIndex] = useState(null)
@@ -38,10 +42,19 @@ export function App ({ canvasId }) {
   useEffect(() => { applyTheme(theme) }, [theme])
 
   useEffect(() => {
-    fetch(`/api/canvas/${canvasId}`, { headers: { accept: 'application/json' } })
+    const query = wanted.current ? `?rev=${wanted.current}` : ''
+    fetch(`/api/canvas/${canvasId}${query}`, { headers: { accept: 'application/json' } })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.status === 404 ? 'Canvas not found' : `Request failed (${res.status})`))))
       .then(setData, (err) => setError(err.message))
+    fetch(`/api/canvas/${canvasId}/versions`, { headers: { accept: 'application/json' } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setVersions, () => {})
   }, [canvasId])
+
+  function chooseVersion (next) {
+    const w = initialHash.current.w
+    location.assign(location.pathname + withRev(location.search, next, data.latestRev) + (w ? `#w=${w}` : ''))
+  }
 
   const layout = useMemo(
     () => (data ? layoutTiles(data.tiles.map(({ id, width, height }) => ({ id, width, height }))) : null),
@@ -140,7 +153,7 @@ export function App ({ canvasId }) {
 
   function shareUrl () {
     const state = playing ? { step: stepIndex + 1 } : { view: cameraRef.current }
-    return location.origin + location.pathname + serializeHash(state)
+    return location.origin + location.pathname + location.search + serializeHash(state)
   }
 
   useEffect(() => {
@@ -218,6 +231,15 @@ export function App ({ canvasId }) {
             <a className="block text-[11px] text-muted-foreground hover:text-foreground" href="/">← Library</a>
             <strong className="block text-[13px]">{data.document.title}</strong>
             <small className="text-muted-foreground">{repo ? `${repo.owner}/${repo.name} · ` : ''}rev {data.rev} · {diagrams} diagram{diagrams === 1 ? '' : 's'}</small>
+            {versions && versions.versions.length > 1 && (
+              <VersionPicker versions={versions.versions} latestRev={data.latestRev} current={data.rev} onChoose={chooseVersion} />
+            )}
+            {data.rev !== data.latestRev && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Viewing rev {data.rev} of {data.latestRev} ·{' '}
+                <a className="underline hover:text-foreground" href={location.pathname + withRev(location.search, null, data.latestRev)}>Back to latest</a>
+              </p>
+            )}
           </header>
           {!playing && <Switcher tiles={data.tiles} theme={theme} activeId={activeTile} onSelect={selectTile} />}
           <Toolbar

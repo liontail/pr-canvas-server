@@ -84,7 +84,7 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove }
         )}
         {canvas.name && canvas.name !== canvas.title && <p className="text-xs break-words text-muted-foreground">{canvas.title}</p>}
         <p className="text-xs break-words text-muted-foreground">
-          {canvas.repo ? `${canvas.repo} · ` : ''}rev {canvas.rev} · {canvas.tiles} diagram{canvas.tiles === 1 ? '' : 's'} ·{' '}
+          {canvas.repo ? `${canvas.repo} · ` : ''}rev {canvas.rev} · {canvas.tiles} diagram{canvas.tiles === 1 ? '' : 's'}{canvas.versions > 1 ? ` · ${canvas.versions} versions` : ''} ·{' '}
           <time dateTime={canvas.lastWriteAt}>{new Date(canvas.lastWriteAt).toLocaleString()}</time>
         </p>
         <div className="flex flex-wrap items-center gap-1">

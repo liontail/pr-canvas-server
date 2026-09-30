@@ -4,6 +4,7 @@ const { safeParseGraphDoc } = require('@coldtea/pr-lens-schema')
 const { PrLensRenderError } = require('@coldtea/pr-lens-renderer')
 const { ApiError, notFound, errorHandler } = require('./errors')
 const { renderCanvas, renderStored, buildSummary, WalkthroughError } = require('./render')
+const { parseRev } = require('./rev')
 const { createViewerRouter } = require('./viewer')
 const { createLibraryRouter } = require('./library')
 
@@ -23,7 +24,7 @@ function createApp ({ store, config }) {
   const app = express()
   const base = config.publicBaseUrl
   const links = (id) => ({ viewUrl: `${base}/c/${id}`, embedUrl: `${base}/c/${id}.svg` })
-  const assetBase = (id) => `${base}/c/${id}/assets`
+  const assetBase = (id, rev = null) => (rev ? `${base}/c/${id}/r/${rev}/assets` : `${base}/c/${id}/assets`)
 
   app.disable('x-powered-by')
   if (config.trustProxy) app.set('trust proxy', config.trustProxy)
@@ -60,10 +61,34 @@ function createApp ({ store, config }) {
 
   app.get('/api/canvas/:id', async (req, res) => {
     const { id } = req.params
+    const rev = parseRev(req.query.rev)
     const canvas = await store.load(id)
     if (!canvas || canvas.rev === 0) throw notFound()
-    const { tiles } = renderStored(canvas.document, assetBase(id))
-    res.json({ id, rev: canvas.rev, ...links(id), document: canvas.document, tiles })
+    let served = canvas
+    let assetRev = null
+    if (rev !== null && rev !== canvas.rev) {
+      served = await store.loadRevision(id, rev)
+      if (!served) throw notFound()
+      assetRev = rev
+    }
+    const { tiles } = renderStored(served.document, assetBase(id, assetRev))
+    res.json({ id, rev: served.rev, latestRev: canvas.rev, ...links(id), document: served.document, tiles })
+  })
+
+  app.get('/api/canvas/:id/versions', async (req, res) => {
+    const { id } = req.params
+    const latestRev = await store.currentRev(id)
+    if (!latestRev) throw notFound()
+    const rows = await store.listVersions(id)
+    res.json({
+      latestRev,
+      versions: rows.map(({ rev, createdAt, summary }) => ({
+        rev,
+        createdAt: createdAt.toISOString(),
+        title: (summary && summary.title) || null,
+        tiles: summary && typeof summary.tileCount === 'number' ? summary.tileCount : null,
+      })),
+    })
   })
 
   app.put('/api/canvas/:id', async (req, res) => {

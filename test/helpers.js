@@ -6,11 +6,12 @@ if (!process.env.MONGODB_URI) {
 }
 const uri = process.env.MONGODB_URI
 
-async function openTestStore () {
+async function openTestStore (options = {}) {
   const dbName = `pr_canvas_test_${crypto.randomBytes(6).toString('hex')}`
-  const store = await createStore({ uri, dbName })
+  const store = await createStore({ uri, dbName, ...options })
   return {
     store,
+    dbName,
     async close () {
       await store.dropDatabase()
       await store.close()

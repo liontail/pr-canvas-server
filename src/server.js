@@ -4,7 +4,7 @@ const { createApp } = require('./app')
 
 async function main () {
   const config = loadConfig()
-  const store = await createStore({ uri: config.mongoUri, dbName: config.mongoDb })
+  const store = await createStore({ uri: config.mongoUri, dbName: config.mongoDb, maxRevisions: config.maxRevisions })
   const server = createApp({ store, config }).listen(config.port, () => {
     console.log(`pr-canvas-server listening on :${config.port} (db ${config.mongoDb})`)
   })

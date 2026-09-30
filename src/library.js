@@ -19,7 +19,7 @@ function createLibraryRouter ({ store, config }) {
 
   const toGroup = (row) => ({ id: row._id, name: row.name, parentId: row.parentId })
 
-  function toCanvas (row) {
+  function toCanvas (row, versions = 1) {
     const summary = row.summary || {}
     const meta = row.meta || {}
     return {
@@ -35,6 +35,7 @@ function createLibraryRouter ({ store, config }) {
       groupId: meta.groupId ?? null,
       thumb: summary.thumb ?? null,
       viewUrl: `${base}/c/${row._id}`,
+      versions,
     }
   }
 
@@ -58,7 +59,8 @@ function createLibraryRouter ({ store, config }) {
     const rows = await store.listLibrary()
     await ensureSummaries(rows)
     const groups = await store.listGroups()
-    res.json({ groups: groups.map(toGroup), canvases: rows.map(toCanvas) })
+    const counts = await store.versionCounts()
+    res.json({ groups: groups.map(toGroup), canvases: rows.map((row) => toCanvas(row, counts.get(row._id) || 1)) })
   })
 
   router.patch('/canvases/:id', async (req, res) => {
@@ -74,7 +76,7 @@ function createLibraryRouter ({ store, config }) {
     if (!Object.keys(patch).length) throw invalid('Nothing to update')
     const row = await store.patchMeta(req.params.id, patch)
     if (!row) throw notFound()
-    res.json(toCanvas(row))
+    res.json(toCanvas(row, (await store.versionCount(row._id)) || 1))
   })
 
   router.post('/groups', async (req, res) => {

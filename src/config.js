@@ -22,6 +22,7 @@ function loadConfig (env = process.env) {
     mintRateLimit: Number(env.MINT_RATE_LIMIT) || 30,
     maxBodyBytes: 10_000_000,
     trustProxy: proxy ? (/^\d+$/.test(proxy) ? Number(proxy) : proxy) : undefined,
+    ...(/^[1-9]\d*$/.test(env.MAX_REVISIONS || '') ? { maxRevisions: Number(env.MAX_REVISIONS) } : {}),
   }
 }
 
