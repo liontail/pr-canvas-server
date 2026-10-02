@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { MoonIcon, SunIcon } from 'lucide-react'
+import { ChevronDownIcon, ChevronRightIcon, MoonIcon, SunIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { CanvasCard } from './components/CanvasCard.jsx'
 import { GroupTree } from './components/GroupTree.jsx'
 import { allTags, filterCanvases, sortCanvases } from './lib/filter.js'
+import { groupByRepo, limitSections, readGroupBy, saveGroupBy } from './lib/group.js'
 import { createGroup, deleteCanvas, deleteGroup, getLibrary, patchCanvas, updateGroup } from './lib/library.js'
 import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
 import { flatten } from './lib/tree.js'
@@ -27,6 +28,8 @@ export function Home () {
   const [sort, setSort] = useState('updated')
   const [search, setSearch] = useState('')
   const [limit, setLimit] = useState(PAGE)
+  const [groupBy, setGroupBy] = useState(readGroupBy)
+  const [collapsed, setCollapsed] = useState(() => new Set())
   const more = useRef(null)
 
   useEffect(() => { applyTheme(theme) }, [theme])
@@ -83,18 +86,33 @@ export function Home () {
     () => (library ? sortCanvases(filterCanvases({ canvases: library.canvases, groups: library.groups, group, tag, query }), sort) : []),
     [library, group, tag, query, sort],
   )
-  useEffect(() => { setLimit(PAGE) }, [group, tag, query, sort])
+  useEffect(() => { setLimit(PAGE) }, [group, tag, query, sort, groupBy])
   useEffect(() => {
     const el = more.current
     if (!el) return undefined
     const watcher = new IntersectionObserver((entries) => { if (entries[0].isIntersecting) setLimit((n) => n + PAGE) }, { rootMargin: '600px' })
     watcher.observe(el)
     return () => watcher.disconnect()
-  }, [limit, visible.length])
+  }, [limit, visible.length, groupBy])
   const shown = useMemo(() => visible.slice(0, limit), [visible, limit])
+  const sections = useMemo(() => (groupBy === 'repo' ? limitSections(groupByRepo(visible, sort), limit) : []), [visible, sort, limit, groupBy])
+  const rendered = groupBy === 'repo' ? sections.reduce((n, s) => n + s.canvases.length, 0) : shown.length
   const tags = useMemo(() => (library ? allTags(library.canvases) : []), [library])
   useEffect(() => { if (tag && library && !tags.some((t) => t.tag.toLowerCase() === tag.toLowerCase())) setTag(null) }, [tags, tag, library])
   const options = useMemo(() => (library ? flatten(library.groups) : []), [library])
+
+  function changeGroupBy (value) {
+    setGroupBy(value)
+    saveGroupBy(value)
+  }
+
+  function toggleSection (key) {
+    setCollapsed((current) => {
+      const next = new Set(current)
+      if (!next.delete(key)) next.add(key)
+      return next
+    })
+  }
 
   function toggleTheme () {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -146,6 +164,13 @@ export function Home () {
               <SelectItem value="name">Name</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={groupBy} onValueChange={changeGroupBy}>
+            <SelectTrigger className="w-36" aria-label="Group by"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="repo">Group: Repo</SelectItem>
+              <SelectItem value="none">Group: None</SelectItem>
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="icon" aria-label="Toggle theme" title="Toggle theme" onClick={toggleTheme}>
             {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           </Button>
@@ -167,11 +192,39 @@ export function Home () {
         )}
         {error && <p role="alert" className="mt-3 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">{error}</p>}
         {visible.length ? (
-          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
-            {shown.map((canvas) => (
-              <CanvasCard key={canvas.id} canvas={canvas} options={options} theme={theme} onPatch={patch} onDelete={remove} />
-            ))}
-            {shown.length < visible.length && <button type="button" ref={more} className="col-span-full py-4 text-sm text-muted-foreground" onClick={() => setLimit((n) => n + PAGE)}>Show more</button>}
+          <div className="mt-4">
+            {groupBy === 'repo' ? sections.map((section) => {
+              const open = !collapsed.has(section.key)
+              const Chevron = open ? ChevronDownIcon : ChevronRightIcon
+              return (
+                <section key={section.key} className="mb-6">
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    className="mb-3 flex w-full items-center gap-2 border-b pb-2 text-left text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    onClick={() => toggleSection(section.key)}
+                  >
+                    <Chevron className="size-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 truncate">{section.repo ?? 'No repo'}</span>
+                    <span className="text-muted-foreground">{section.total}</span>
+                  </button>
+                  {open && (
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+                      {section.canvases.map((canvas) => (
+                        <CanvasCard key={canvas.id} canvas={canvas} options={options} theme={theme} onPatch={patch} onDelete={remove} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )
+            }) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+                {shown.map((canvas) => (
+                  <CanvasCard key={canvas.id} canvas={canvas} options={options} theme={theme} onPatch={patch} onDelete={remove} />
+                ))}
+              </div>
+            )}
+            {rendered < visible.length && <button type="button" ref={more} className="block w-full py-4 text-sm text-muted-foreground" onClick={() => setLimit((n) => n + PAGE)}>Show more</button>}
           </div>
         ) : (
           <Empty className="mt-10">

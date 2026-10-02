@@ -6,6 +6,7 @@ import { askQuestion } from '../lib/ask.js'
 import { parseCitations, selectionHint } from '../lib/cite.js'
 
 export function AskPopover ({ canvasId, rev, document, selected, onCite }) {
+  const [open, setOpen] = useState(false)
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [busy, setBusy] = useState(false)
@@ -42,7 +43,7 @@ export function AskPopover ({ canvasId, rev, document, selected, onCite }) {
   }
 
   return (
-    <Popover onOpenChange={(open) => { if (!open) stop() }}>
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) stop() }}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon-sm" title="Ask anything" aria-label="Ask anything"><SparklesIcon /></Button>
       </PopoverTrigger>
@@ -67,7 +68,7 @@ export function AskPopover ({ canvasId, rev, document, selected, onCite }) {
           <p aria-live="polite" className="mt-3 max-h-64 overflow-auto text-sm whitespace-pre-wrap">
             {parseCitations(answer, document, busy).map((part, i) => (
               part.ref
-                ? <button key={i} type="button" className="text-highlight underline underline-offset-2" onClick={() => onCite(part.ref)}>{part.text}</button>
+                ? <button key={i} type="button" className="text-highlight underline underline-offset-2" onClick={() => { onCite(part.ref); setOpen(false) }}>{part.text}</button>
                 : <span key={i}>{part.text}</span>
             ))}
           </p>
