@@ -1,10 +1,56 @@
 import { useEffect, useRef } from 'preact/hooks'
-import { panBy, zoomAt } from '../lib/camera.js'
+import { panBy, scrollThumb, zoomAt } from '../lib/camera.js'
 import { screenToWorld } from '../lib/hit.js'
 
 const CLICK_SLOP = 4
+const MIN_THUMB = 24
+const PAGE = 0.9
 
-export function Canvas ({ tiles, layout, camera, cameraRef, theme, interactive = true, pointing = false, onCamera, onHover, onClick, children }) {
+function Scrollbar ({ axis, thumb, length, enabled, onPan }) {
+  const drag = useRef(null)
+  const x = axis === 'x'
+  const stop = (event) => event.stopPropagation()
+  const coord = (event) => (x ? event.clientX : event.clientY)
+  const size = Math.max(MIN_THUMB / length, thumb.size)
+  const pos = thumb.pos * (1 - size) / Math.max(1e-9, 1 - thumb.size)
+  const box = x ? { left: `${pos * 100}%`, width: `${size * 100}%` } : { top: `${pos * 100}%`, height: `${size * 100}%` }
+
+  function onTrackDown (event) {
+    stop(event)
+    if (!enabled || event.target !== event.currentTarget) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const frac = (coord(event) - (x ? rect.left : rect.top)) / length
+    onPan((frac < pos ? 1 : -1) * length * PAGE)
+  }
+
+  function onThumbDown (event) {
+    stop(event)
+    if (!enabled) return
+    drag.current = coord(event)
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+
+  function onThumbMove (event) {
+    stop(event)
+    if (drag.current === null) return
+    const delta = coord(event) - drag.current
+    drag.current = coord(event)
+    onPan(-delta * thumb.span / length)
+  }
+
+  function onThumbUp (event) {
+    stop(event)
+    drag.current = null
+  }
+
+  return (
+    <div class={`scrollbar scrollbar-${axis}${enabled ? '' : ' disabled'}`} onPointerDown={onTrackDown} onPointerMove={stop} onPointerUp={stop}>
+      <div class="scrollbar-thumb" style={box} onPointerDown={onThumbDown} onPointerMove={onThumbMove} onPointerUp={onThumbUp} onPointerCancel={onThumbUp} />
+    </div>
+  )
+}
+
+export function Canvas ({ tiles, layout, bounds, viewport, camera, cameraRef, theme, interactive = true, pointing = false, onCamera, onHover, onClick, children }) {
   const ref = useRef(null)
   const drag = useRef(null)
   const live = useRef({ interactive, onCamera, onHover, onClick })
@@ -69,6 +115,13 @@ export function Canvas ({ tiles, layout, camera, cameraRef, theme, interactive =
     if (live.current.onHover) live.current.onHover(null)
   }
 
+  function pan (dx, dy) {
+    if (live.current.interactive && cameraRef.current) live.current.onCamera(panBy(cameraRef.current, dx, dy))
+  }
+
+  const bars = camera && bounds && viewport && viewport.width > 0 && viewport.height > 0
+  const z = camera ? camera.zoom : 1
+
   return (
     <div
       class={`canvas${pointing ? ' pointing' : ''}`}
@@ -98,6 +151,12 @@ export function Canvas ({ tiles, layout, camera, cameraRef, theme, interactive =
           })}
           {children}
         </div>
+      )}
+      {bars && (
+        <>
+          <Scrollbar axis="x" length={viewport.width} enabled={interactive} thumb={scrollThumb(bounds.x * z, (bounds.x + bounds.width) * z, -camera.x, viewport.width)} onPan={(d) => pan(d, 0)} />
+          <Scrollbar axis="y" length={viewport.height} enabled={interactive} thumb={scrollThumb(bounds.y * z, (bounds.y + bounds.height) * z, -camera.y, viewport.height)} onPan={(d) => pan(0, d)} />
+        </>
       )}
     </div>
   )

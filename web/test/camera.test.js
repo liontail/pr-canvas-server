@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert'
-import { MAX_ZOOM, MIN_ZOOM, clampZoom, ease, expand, fit, lerpCamera, panBy, zoomAt } from '../src/lib/camera.js'
+import { MAX_ZOOM, MIN_ZOOM, clampZoom, ease, expand, fit, lerpCamera, panBy, scrollThumb, zoomAt } from '../src/lib/camera.js'
 
 test('clampZoom bounds the zoom and tolerates junk', () => {
   assert.strictEqual(clampZoom(100), MAX_ZOOM)
@@ -69,4 +69,17 @@ test('ease and lerpCamera hit their endpoints', () => {
   const b = { x: 100, y: 50, zoom: 2 }
   assert.deepStrictEqual(lerpCamera(a, b, 0), a)
   assert.deepStrictEqual(lerpCamera(a, b, 1), b)
+})
+
+test('scrollThumb sizes and places the thumb within content plus padding', () => {
+  const t = scrollThumb(0, 1000, 0, 500, 100)
+  assert.strictEqual(t.span, 1200)
+  assert.ok(Math.abs(t.size - 500 / 1200) < 1e-9)
+  assert.ok(Math.abs(t.pos - 100 / 1200) < 1e-9)
+})
+
+test('scrollThumb keeps the viewport inside the track when panned past the content', () => {
+  const t = scrollThumb(0, 1000, 5000, 500, 100)
+  assert.ok(t.pos >= 0 && t.pos + t.size <= 1 + 1e-9)
+  assert.ok(Math.abs(t.pos + t.size - 1) < 1e-9)
 })

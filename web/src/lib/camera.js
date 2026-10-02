@@ -41,3 +41,12 @@ export function lerpCamera (a, b, t) {
   const e = ease(t)
   return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e, zoom: a.zoom + (b.zoom - a.zoom) * e }
 }
+
+// Scrollbar thumb for one axis. start/end = content extent in screen px at the current zoom,
+// viewStart = viewport origin in the same space. The range always includes the viewport so free pan keeps a valid thumb.
+export function scrollThumb (start, end, viewStart, viewSize, pad = 200) {
+  const lo = Math.min(start - pad, viewStart)
+  const hi = Math.max(end + pad, viewStart + viewSize)
+  const span = hi - lo
+  return { size: viewSize / span, pos: (viewStart - lo) / span, span }
+}

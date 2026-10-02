@@ -230,6 +230,8 @@ export function App ({ canvasId }) {
           <Canvas
             tiles={data.tiles}
             layout={layout}
+            bounds={layout.bounds}
+            viewport={viewport}
             camera={camera}
             cameraRef={cameraRef}
             theme={theme}

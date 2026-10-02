@@ -15,6 +15,14 @@ body { overflow: hidden; }
 }
 .canvas:active { cursor: grabbing; }
 .canvas.pointing { cursor: pointer; }
+.scrollbar { position: absolute; z-index: 5; cursor: default; }
+.scrollbar-x { left: 0; right: 12px; bottom: 0; height: 12px; }
+.scrollbar-y { top: 0; bottom: 12px; right: 0; width: 12px; }
+.scrollbar-thumb { position: absolute; border-radius: 6px; background: var(--muted-foreground); opacity: 0.45; }
+.scrollbar-x .scrollbar-thumb { top: 2px; bottom: 2px; }
+.scrollbar-y .scrollbar-thumb { left: 2px; right: 2px; }
+.scrollbar:hover .scrollbar-thumb { opacity: 0.75; }
+.scrollbar.disabled { pointer-events: none; opacity: 0.4; }
 .stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: auto; }
 .tile { position: absolute; margin: 0; }
 .tile img { display: block; user-select: none; pointer-events: none; }
