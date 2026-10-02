@@ -50,7 +50,7 @@ function Scrollbar ({ axis, thumb, length, enabled, onPan }) {
   )
 }
 
-export function Canvas ({ tiles, layout, bounds, viewport, camera, cameraRef, theme, interactive = true, pointing = false, onCamera, onHover, onClick, children }) {
+export function Canvas ({ tiles, layout, bounds, viewport, liveTile, camera, cameraRef, theme, interactive = true, pointing = false, onCamera, onHover, onClick, children }) {
   const ref = useRef(null)
   const drag = useRef(null)
   const live = useRef({ interactive, onCamera, onHover, onClick })
@@ -145,7 +145,7 @@ export function Canvas ({ tiles, layout, bounds, viewport, camera, cameraRef, th
                 style={{ left: `${at.x * z}px`, top: `${at.y * z}px`, ...size }}
               >
                 <figcaption style={{ top: `${-30 * z}px`, fontSize: `${12 * z}px` }}><b>{tile.title}</b> {tile.lens}{tile.hero ? ' · hero' : ''}</figcaption>
-                <img src={tile.images[theme]} style={size} alt={tile.title} draggable={false} />
+                <img src={tile.id === liveTile ? tile.images[theme] : `${tile.images[theme]}?static`} style={size} alt={tile.title} draggable={false} />
               </figure>
             )
           })}

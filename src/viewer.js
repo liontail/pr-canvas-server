@@ -14,6 +14,14 @@ const SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
 
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
 
+// Flow-dot circles only exist to be animated; in a static copy they would sit at the origin, so drop them whole.
+const DOT_RE = /<circle\b[^>]*>\s*<animateMotion\b[^>]*\/>\s*<\/circle>/g
+const ANIMATE_RE = /<animate\w*\b[^>]*\/>/g
+
+function staticSvg (svg) {
+  return svg.replace(DOT_RE, '').replace(ANIMATE_RE, '')
+}
+
 function esc (text) {
   return String(text).replace(/[&<>"']/g, (char) => ESCAPES[char])
 }
@@ -156,8 +164,9 @@ function createViewerRouter ({ store, config }) {
 
   async function sendAsset (req, res) {
     const { files } = await drawn(req.params.id, parseRev(req.params.rev), parseRev(req.params.base))
-    const svg = files.get(req.params.file)
+    let svg = files.get(req.params.file)
     if (!svg) throw notFound()
+    if (req.query.static !== undefined) svg = staticSvg(svg)
     res.set({ 'Cache-Control': 'public, max-age=31536000, immutable', 'Content-Security-Policy': SVG_CSP }).type('image/svg+xml').send(svg)
   }
   router.get('/c/:id/assets/:file', sendAsset)
@@ -167,4 +176,4 @@ function createViewerRouter ({ store, config }) {
   return router
 }
 
-module.exports = { createViewerRouter, esc }
+module.exports = { createViewerRouter, esc, staticSvg }

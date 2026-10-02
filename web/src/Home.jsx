@@ -15,6 +15,7 @@ import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
 import { flatten } from './lib/tree.js'
 
 const PAGE = 48
+const SEARCH_DELAY = 150
 
 export function Home () {
   const [library, setLibrary] = useState(null)
@@ -24,6 +25,7 @@ export function Home () {
   const [tag, setTag] = useState(null)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('updated')
+  const [search, setSearch] = useState('')
   const [limit, setLimit] = useState(PAGE)
   const more = useRef(null)
 
@@ -71,6 +73,11 @@ export function Home () {
     }
     await refresh()
   }
+
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(search), SEARCH_DELAY)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const visible = useMemo(
     () => (library ? sortCanvases(filterCanvases({ canvases: library.canvases, groups: library.groups, group, tag, query }), sort) : []),
@@ -131,7 +138,7 @@ export function Home () {
       </aside>
       <main className="min-w-0 flex-1 p-6 md:overflow-y-auto">
         <div className="flex items-center gap-2">
-          <Input type="search" className="min-w-0 flex-1" placeholder="Search name, repo or tag" value={query} aria-label="Search diagrams" onInput={(event) => setQuery(event.currentTarget.value)} />
+          <Input type="search" className="min-w-0 flex-1" placeholder="Search name, repo or tag" value={search} aria-label="Search diagrams" onInput={(event) => setSearch(event.currentTarget.value)} />
           <Select value={sort} onValueChange={setSort}>
             <SelectTrigger className="w-44" aria-label="Sort"><SelectValue /></SelectTrigger>
             <SelectContent>

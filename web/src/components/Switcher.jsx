@@ -14,7 +14,7 @@ export function Switcher ({ tiles, theme, activeId, onSelect }) {
             tile.id === activeId && 'border-border bg-accent',
           )}
         >
-          <img src={tile.images[theme]} alt="" draggable={false} className="row-span-2 h-9 w-14 rounded bg-background object-contain" />
+          <img src={`${tile.images[theme]}?static`} alt="" draggable={false} className="row-span-2 h-9 w-14 rounded bg-background object-contain" />
           <span className="truncate">{tile.title}</span>
           <small className="font-mono text-[11px] text-muted-foreground">{tile.lens}</small>
         </button>

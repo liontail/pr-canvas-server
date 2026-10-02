@@ -232,6 +232,7 @@ export function App ({ canvasId }) {
             layout={layout}
             bounds={layout.bounds}
             viewport={viewport}
+            liveTile={(selected && selected.tileId) || activeTile}
             camera={camera}
             cameraRef={cameraRef}
             theme={theme}

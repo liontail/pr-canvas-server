@@ -15,6 +15,7 @@ const INDENT = '  '
 
 export const CanvasCard = memo(function CanvasCard ({ canvas, options, theme, onPatch, onDelete }) {
   const [picking, setPicking] = useState(false)
+  const [hot, setHot] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -63,9 +64,9 @@ export const CanvasCard = memo(function CanvasCard ({ canvas, options, theme, on
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
-      <a href={`/c/${canvas.id}`} aria-label={`Open ${name}`} className="grid aspect-[16/10] place-items-center border-b bg-muted">
+      <a href={`/c/${canvas.id}`} aria-label={`Open ${name}`} onPointerEnter={() => setHot(true)} onPointerLeave={() => setHot(false)} className="grid aspect-[16/10] place-items-center border-b bg-muted">
         {file
-          ? <img src={`/c/${canvas.id}/assets/${file}`} alt="" loading="lazy" className="h-full w-full object-contain" />
+          ? <img src={`/c/${canvas.id}/assets/${file}${hot ? '' : '?static'}`} alt="" loading="lazy" className="h-full w-full object-contain" />
           : <span className="text-xs text-muted-foreground">No preview</span>}
       </a>
       <div className="grid gap-2 p-4">
