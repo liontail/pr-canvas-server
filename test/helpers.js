@@ -19,7 +19,7 @@ async function openTestStore (options = {}) {
   }
 }
 
-async function startTestApp (configOverrides = {}) {
+async function startTestApp (configOverrides = {}, { askClient } = {}) {
   const { createApp } = require('../src/app')
   const { store, close: closeStore } = await openTestStore()
   const config = {
@@ -29,7 +29,7 @@ async function startTestApp (configOverrides = {}) {
     ...configOverrides,
   }
   const server = await new Promise((resolve) => {
-    const s = createApp({ store, config }).listen(0, '127.0.0.1', () => resolve(s))
+    const s = createApp({ store, config, askClient }).listen(0, '127.0.0.1', () => resolve(s))
   })
   const base = `http://127.0.0.1:${server.address().port}`
   return {

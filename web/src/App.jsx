@@ -4,6 +4,8 @@ import { Inspect } from './components/Inspect.jsx'
 import { Overlay } from './components/Overlay.jsx'
 import { Switcher } from './components/Switcher.jsx'
 import { Toolbar } from './components/Toolbar.jsx'
+import { AskPopover } from './components/AskPopover.jsx'
+import { locateCitation } from './lib/cite.js'
 import { DetailPanel } from './components/DetailPanel.jsx'
 import { Tooltip } from './components/Tooltip.jsx'
 import { Walkthrough } from './components/Walkthrough.jsx'
@@ -148,6 +150,15 @@ export function App ({ canvasId }) {
     flyTo(fit(expand(tileBox(id), 40), viewport))
   }
 
+  function cite (ref) {
+    const found = locateCitation(ref, data.tiles, layout.positions)
+    if (!found) return
+    if (playing) leave()
+    setActiveTile(found.tileId)
+    setSelected(found.target)
+    flyTo(fit(expand(found.world, 120), viewport))
+  }
+
   function goToStep (index) {
     const step = steps[index]
     stepRef.current = index
@@ -178,6 +189,7 @@ export function App ({ canvasId }) {
   useEffect(() => {
     if (!ready) return
     const onKey = (event) => {
+      if (event.target.closest && event.target.closest('input, textarea, [contenteditable="true"]')) return
       if (event.metaKey || event.ctrlKey || event.altKey) return
       const active = stepRef.current
       if (active !== null) {
@@ -296,6 +308,9 @@ export function App ({ canvasId }) {
             canPlay={steps.length > 0}
             playing={playing}
             onPlay={() => (playing ? leave() : goToStep(0))}
+            ask={data.askEnabled
+              ? <AskPopover canvasId={canvasId} rev={data.rev} document={data.document} selected={selected} onCite={cite} />
+              : null}
           />
           {model && !playing && <DetailPanel model={model} onClose={() => setSelected(null)} />}
           {playing && <Walkthrough steps={steps} index={stepIndex} onIndex={goToStep} onLeave={leave} />}

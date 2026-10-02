@@ -45,3 +45,30 @@ test('rejects a base URL with a path or without a scheme', () => {
   assert.throws(() => loadConfig({ ...env, PUBLIC_BASE_URL: 'https://h/canvas' }), /PUBLIC_BASE_URL/)
   assert.throws(() => loadConfig({ ...env, PUBLIC_BASE_URL: 'canvas.example.com' }), /PUBLIC_BASE_URL/)
 })
+
+const ENV = { MONGODB_URI: 'mongodb://x', PUBLIC_BASE_URL: 'http://h' }
+const ASK_ENV = { OPEN_AI_API_KEY: 'k', OPEN_AI_MODEL: 'm', OPEN_AI_BASEURL: 'http://bifrost.test/v1' }
+
+test('ask is absent when no OPEN_AI_* variable is set', () => {
+  assert.strictEqual('ask' in loadConfig(ENV), false)
+})
+
+test('ask is configured with defaults when all three OPEN_AI_* variables are set', () => {
+  assert.deepStrictEqual(loadConfig({ ...ENV, ...ASK_ENV }).ask, {
+    apiKey: 'k',
+    model: 'm',
+    baseUrl: 'http://bifrost.test/v1',
+    rateLimit: 10,
+    dailyCap: 500,
+  })
+})
+
+test('ASK_RATE_LIMIT and ASK_DAILY_CAP override the defaults', () => {
+  const { ask } = loadConfig({ ...ENV, ...ASK_ENV, ASK_RATE_LIMIT: '3', ASK_DAILY_CAP: '40' })
+  assert.strictEqual(ask.rateLimit, 3)
+  assert.strictEqual(ask.dailyCap, 40)
+})
+
+test('a partial OPEN_AI_* set throws naming the missing variables', () => {
+  assert.throws(() => loadConfig({ ...ENV, OPEN_AI_API_KEY: 'k' }), /OPEN_AI_MODEL, OPEN_AI_BASEURL/)
+})

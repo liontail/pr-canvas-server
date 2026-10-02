@@ -18,3 +18,13 @@ Seeing the versions
 - The library card shows "N versions".
 
 A different title starts a separate canvas, not a new version. If you want the two to be versions of one diagram, keep the title the same.
+
+Ask anything
+
+Set `OPEN_AI_API_KEY`, `OPEN_AI_MODEL`, and `OPEN_AI_BASEURL` (all three required) to enable the Ask anything toolbar button. It streams LLM answers about the canvas.
+
+Optional limits (env vars, defaults shown):
+- `ASK_RATE_LIMIT=10` (questions per minute per IP)
+- `ASK_DAILY_CAP=500` (total questions across all users per day)
+
+The toolbar button is disabled when these vars are unset.

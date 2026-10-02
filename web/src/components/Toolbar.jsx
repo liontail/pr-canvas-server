@@ -16,7 +16,7 @@ const KEYS = [
   ['Esc', 'leave the walkthrough'],
 ]
 
-export function Toolbar ({ theme, onToggleTheme, onFit, getShareUrl, canPlay = false, playing = false, onPlay }) {
+export function Toolbar ({ theme, onToggleTheme, onFit, getShareUrl, canPlay = false, playing = false, onPlay, ask = null }) {
   const [note, setNote] = useState('')
 
   function say (text) {
@@ -66,7 +66,7 @@ export function Toolbar ({ theme, onToggleTheme, onFit, getShareUrl, canPlay = f
             </dl>
           </PopoverContent>
         </Popover>
-        <Button variant="ghost" size="icon-sm" title="Live mode is not enabled" aria-label="Ask anything (unavailable)" disabled><SparklesIcon /></Button>
+        {ask || <Button variant="ghost" size="icon-sm" title="Ask anything is not enabled on this server" aria-label="Ask anything (unavailable)" disabled><SparklesIcon /></Button>}
       </div>
       {note && <div role="status" className="absolute top-14 right-3 z-20 rounded-md border bg-card px-3 py-1.5 text-xs shadow-sm">{note}</div>}
     </>

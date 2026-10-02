@@ -19,7 +19,8 @@
     "@coldtea/pr-lens-schema": "^0.6.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
-    "mongodb": "^7.7.0"
+    "mongodb": "^7.7.0",
+    "openai": "^7.27.0"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",

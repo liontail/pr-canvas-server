@@ -8,6 +8,7 @@ const { parseRev } = require('./rev')
 const { assetBaseFor, resolveVersion } = require('./versioned')
 const { createViewerRouter } = require('./viewer')
 const { createLibraryRouter } = require('./library')
+const { createAskRouter } = require('./ask')
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{22}$/
 
@@ -21,7 +22,7 @@ function parseIfMatch (header) {
   return match ? Number(match[1]) : null
 }
 
-function createApp ({ store, config }) {
+function createApp ({ store, config, askClient }) {
   const app = express()
   const base = config.publicBaseUrl
   const links = (id) => ({ viewUrl: `${base}/c/${id}`, embedUrl: `${base}/c/${id}.svg` })
@@ -77,6 +78,7 @@ function createApp ({ store, config }) {
       rev: found.rev,
       latestRev: found.latestRev,
       ...(found.base !== null ? { base: found.base } : {}),
+      askEnabled: Boolean(config.ask),
       ...links(id),
       document: found.document,
       tiles: found.tiles,
@@ -157,6 +159,7 @@ function createApp ({ store, config }) {
     res.json({ id, deleted: true })
   })
 
+  app.use(createAskRouter({ store, config, client: askClient }))
   app.use('/api/library', createLibraryRouter({ store, config }))
   app.use(createViewerRouter({ store, config }))
   app.use((req, res, next) => next(new ApiError('NOT_FOUND', 'Route not found')))
