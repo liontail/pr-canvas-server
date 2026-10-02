@@ -8,6 +8,8 @@ const { assetBaseFor, resolveVersion } = require('./versioned')
 const ID_RE = /^[A-Za-z0-9_-]{22}$/
 const PAGE_RE = /^([A-Za-z0-9_-]{22})(\.svg)?$/
 
+const RENDER_CACHE = 50
+
 const SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
 
 const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }
@@ -106,9 +108,23 @@ function createViewerRouter ({ store, config }) {
   }
   const assetBase = assetBaseFor(config.publicBaseUrl)
 
+  // Rendering re-draws every tile, so cache by the canvas's current rev (a cheap doc-less lookup); Map order gives LRU eviction.
+  const rendered = new Map()
   async function drawn (id, rev = null, base = null) {
     if (!ID_RE.test(id)) throw notFound()
-    return resolveVersion(store, id, rev, base, assetBase)
+    const row = await store.getLibraryRow(id)
+    if (!row) return resolveVersion(store, id, rev, base, assetBase)
+    const key = `${id}:${row.rev}:${row.lastWriteAt.getTime()}:${rev}:${base}`
+    const hit = rendered.get(key)
+    if (hit) {
+      rendered.delete(key)
+      rendered.set(key, hit)
+      return hit
+    }
+    const found = await resolveVersion(store, id, rev, base, assetBase)
+    rendered.set(key, found)
+    if (rendered.size > RENDER_CACHE) rendered.delete(rendered.keys().next().value)
+    return found
   }
 
   router.get('/', (req, res) => {

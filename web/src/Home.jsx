@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { MoonIcon, SunIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,8 @@ import { createGroup, deleteCanvas, deleteGroup, getLibrary, patchCanvas, update
 import { applyTheme, readTheme, saveTheme } from './lib/theme.js'
 import { flatten } from './lib/tree.js'
 
+const PAGE = 48
+
 export function Home () {
   const [library, setLibrary] = useState(null)
   const [error, setError] = useState(null)
@@ -22,6 +24,8 @@ export function Home () {
   const [tag, setTag] = useState(null)
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('updated')
+  const [limit, setLimit] = useState(PAGE)
+  const more = useRef(null)
 
   useEffect(() => { applyTheme(theme) }, [theme])
 
@@ -34,6 +38,29 @@ export function Home () {
   }
 
   useEffect(() => { refresh() }, [])
+
+  // Canvas edits patch local state from the server's reply; only failures fall back to a full reload.
+  const patch = useCallback(async (id, body) => {
+    setError(null)
+    try {
+      const next = await patchCanvas(id, body)
+      setLibrary((current) => current && { ...current, canvases: current.canvases.map((item) => (item.id === id ? next : item)) })
+    } catch (err) {
+      setError(err.message)
+      refresh()
+    }
+  }, [])
+
+  const remove = useCallback(async (id) => {
+    setError(null)
+    try {
+      await deleteCanvas(id)
+      setLibrary((current) => current && { ...current, canvases: current.canvases.filter((item) => item.id !== id) })
+    } catch (err) {
+      setError(err.message)
+      refresh()
+    }
+  }, [])
 
   async function run (action) {
     setError(null)
@@ -49,6 +76,15 @@ export function Home () {
     () => (library ? sortCanvases(filterCanvases({ canvases: library.canvases, groups: library.groups, group, tag, query }), sort) : []),
     [library, group, tag, query, sort],
   )
+  useEffect(() => { setLimit(PAGE) }, [group, tag, query, sort])
+  useEffect(() => {
+    const el = more.current
+    if (!el) return undefined
+    const watcher = new IntersectionObserver((entries) => { if (entries[0].isIntersecting) setLimit((n) => n + PAGE) }, { rootMargin: '600px' })
+    watcher.observe(el)
+    return () => watcher.disconnect()
+  }, [limit, visible.length])
+  const shown = useMemo(() => visible.slice(0, limit), [visible, limit])
   const tags = useMemo(() => (library ? allTags(library.canvases) : []), [library])
   useEffect(() => { if (tag && library && !tags.some((t) => t.tag.toLowerCase() === tag.toLowerCase())) setTag(null) }, [tags, tag, library])
   const options = useMemo(() => (library ? flatten(library.groups) : []), [library])
@@ -125,18 +161,10 @@ export function Home () {
         {error && <p role="alert" className="mt-3 rounded-md border border-destructive/50 px-3 py-2 text-sm text-destructive">{error}</p>}
         {visible.length ? (
           <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
-            {visible.map((canvas) => (
-              <CanvasCard
-                key={canvas.id}
-                canvas={canvas}
-                options={options}
-                theme={theme}
-                onRename={(name) => run(() => patchCanvas(canvas.id, { name }))}
-                onTags={(next) => run(() => patchCanvas(canvas.id, { tags: next }))}
-                onMove={(groupId) => run(() => patchCanvas(canvas.id, { groupId }))}
-                onDelete={() => deleteCanvas(canvas.id).then(refresh)}
-              />
+            {shown.map((canvas) => (
+              <CanvasCard key={canvas.id} canvas={canvas} options={options} theme={theme} onPatch={patch} onDelete={remove} />
             ))}
+            {shown.length < visible.length && <button type="button" ref={more} className="col-span-full py-4 text-sm text-muted-foreground" onClick={() => setLimit((n) => n + PAGE)}>Show more</button>}
           </div>
         ) : (
           <Empty className="mt-10">

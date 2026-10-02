@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
+import { memo } from 'preact/compat'
 import { PencilIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,8 @@ import { ConfirmDialog } from './ConfirmDialog.jsx'
 const NONE = '__none__'
 const INDENT = '  '
 
-export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove, onDelete }) {
+export const CanvasCard = memo(function CanvasCard ({ canvas, options, theme, onPatch, onDelete }) {
+  const [picking, setPicking] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -20,6 +22,7 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove, 
   const done = useRef(true)
   const form = useRef(null)
   const name = displayName(canvas)
+  const groupLabel = (options.find((option) => option.id === canvas.groupId) || { name: 'Ungrouped' }).name
   const file = canvas.thumb && canvas.thumb[theme]
 
   useEffect(() => {
@@ -41,7 +44,7 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove, 
     setEditing(false)
     const next = draft.trim()
     if (next === (canvas.name || canvas.title)) return
-    onRename(next === '' || next === canvas.title ? null : next)
+    onPatch(canvas.id, { name: next === '' || next === canvas.title ? null : next })
   }
 
   function cancel () {
@@ -55,7 +58,7 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove, 
     event.preventDefault()
     const next = addTag(canvas.tags, tagText)
     setTagText('')
-    if (next !== canvas.tags) onTags(next)
+    if (next !== canvas.tags) onPatch(canvas.id, { tags: next })
   }
 
   return (
@@ -98,7 +101,7 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove, 
                 type="button"
                 aria-label={`Remove tag ${tag}`}
                 className="rounded-full p-0.5 opacity-60 outline-none hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                onClick={() => onTags(removeTag(canvas.tags, tag))}
+                onClick={() => onPatch(canvas.id, { tags: removeTag(canvas.tags, tag) })}
               >
                 <XIcon className="size-3" />
               </button>
@@ -114,23 +117,29 @@ export function CanvasCard ({ canvas, options, theme, onRename, onTags, onMove, 
             onKeyDown={onTagKey}
           />
         </div>
-        <Select value={canvas.groupId || NONE} onValueChange={(value) => onMove(value === NONE ? null : value)}>
-          <SelectTrigger size="sm" className="w-full" aria-label={`Group for ${name}`}><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE}>Ungrouped</SelectItem>
-            {options.map((option) => (
-              <SelectItem key={option.id} value={option.id}>{INDENT.repeat(option.depth)}{option.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {picking ? (
+          <Select defaultOpen value={canvas.groupId || NONE} onValueChange={(value) => onPatch(canvas.id, { groupId: value === NONE ? null : value })} onOpenChange={(open) => { if (!open) setPicking(false) }}>
+            <SelectTrigger size="sm" className="w-full" aria-label={`Group for ${name}`}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>Ungrouped</SelectItem>
+              {options.map((option) => (
+                <SelectItem key={option.id} value={option.id}>{INDENT.repeat(option.depth)}{option.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Button variant="outline" size="sm" className="w-full justify-start font-normal" aria-label={`Group for ${name}`} onClick={() => setPicking(true)}>
+            {groupLabel}
+          </Button>
+        )}
       </div>
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
         title={`Delete "${name}"?`}
         description={`This removes the diagram and its ${canvas.versions} version${canvas.versions === 1 ? '' : 's'}. This can't be undone.`}
-        onConfirm={onDelete}
+        onConfirm={() => onDelete(canvas.id)}
       />
     </Card>
   )
-}
+})
